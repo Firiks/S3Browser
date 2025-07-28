@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+{% block title %}{{ bucket_name }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item">
+                    <a href="/"><i class="fas fa-home"></i> Home</a>
+                </li>
+                <li class="breadcrumb-item active">{{ bucket_name }}</li>
+            </ol>
+        </nav>
+        
+        <h2>
+            <i class="fas fa-folder"></i> {{ bucket_name }}
+            {% if current_prefix %}
+            <small class="text-muted">/ {{ current_prefix }}</small>
+            {% endif %}
+        </h2>
+        <hr>
+        
+        {% if current_prefix %}
+        <div class="mb-3">
+            <a href="/bucket/{{ bucket_name }}" 
+               class="btn btn-outline-secondary btn-sm">
+                <i class="fas fa-level-up-alt"></i> Go Up
+            </a>
+        </div>
+        {% endif %}
+        
+        <form method="get" class="row g-2 align-items-end mb-4">
+            <input type="hidden" name="prefix" value="{{ current_prefix }}">
+            <input type="hidden" name="max_keys" value="{{ max_keys }}">
+            <input type="hidden" name="continuation_token" value="{{ continuation_token }}">
+            <div class="col-md-2">
+                <label class="form-label mb-0">Search</label>
+                <input type="text" class="form-control" name="key_substring" value="{{ request.query_params.get('key_substring', '') }}" placeholder="Substring...">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-0">Min Size (B)</label>
+                <input type="number" class="form-control" name="min_size" value="{{ request.query_params.get('min_size', '') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-0">Max Size (B)</label>
+                <input type="number" class="form-control" name="max_size" value="{{ request.query_params.get('max_size', '') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-0">After</label>
+                <input type="datetime-local" class="form-control" name="modified_after" value="{{ request.query_params.get('modified_after', '') }}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label mb-0">Before</label>
+                <input type="datetime-local" class="form-control" name="modified_before" value="{{ request.query_params.get('modified_before', '') }}">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label mb-0">Sort By</label>
+                <select class="form-select" name="sort_by">
+                    <option value="">---</option>
+                    <option value="key" {% if request.query_params.get('sort_by') == 'key' %}selected{% endif %}>Name</option>
+                    <option value="size" {% if request.query_params.get('sort_by') == 'size' %}selected{% endif %}>Size</option>
+                    <option value="last_modified" {% if request.query_params.get('sort_by') == 'last_modified' %}selected{% endif %}>Last Modified</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <label class="form-label mb-0">Order</label>
+                <select class="form-select" name="sort_order">
+                    <option value="asc" {% if request.query_params.get('sort_order') == 'asc' %}selected{% endif %}>Asc</option>
+                    <option value="desc" {% if request.query_params.get('sort_order') == 'desc' %}selected{% endif %}>Desc</option>
+                </select>
+            </div>
+            <div class="col-md-12 mt-2">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                <a href="?prefix={{ current_prefix }}" class="btn btn-secondary ms-2">Reset</a>
+            </div>
+        </form>
+        
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Size</th>
+                        <th>Last Modified</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prefix in prefixes %}
+                    <tr>
+                        <td>
+                            <i class="fas fa-folder folder-icon"></i>
+                            <a href="/bucket/{{ bucket_name }}?prefix={{ prefix }}">
+                                {{ prefix }}
+                            </a>
+                        </td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>
+                            <a href="/bucket/{{ bucket_name }}?prefix={{ prefix }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-folder-open"></i> Open
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    
+                    {% for obj in objects %}
+                    <tr>
+                        <td>
+                            <i class="fas fa-file file-icon"></i>
+                            {{ obj.key }}
+                        </td>
+                        <td>{{ obj.size|filesizeformat }}</td>
+                        <td>{{ obj.last_modified.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" 
+                                    onclick="showObjectInfo('{{ bucket_name }}', '{{ obj.key }}')">
+                                <i class="fas fa-info-circle"></i> Info
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination Controls -->
+        <div class="d-flex justify-content-between align-items-center mt-3">
+            <form method="get" action="" class="mb-0">
+                <input type="hidden" name="prefix" value="{{ current_prefix }}">
+                <input type="hidden" name="max_keys" value="{{ max_keys }}">
+                {% if continuation_token %}
+                <input type="hidden" name="prev_token" value="{{ continuation_token }}">
+                {% endif %}
+                {% if prev_token %}
+                <button type="submit" name="continuation_token" value="{{ prev_token }}" class="btn btn-outline-secondary btn-sm">&laquo; Previous</button>
+                {% else %}
+                <button type="button" class="btn btn-outline-secondary btn-sm" disabled>&laquo; Previous</button>
+                {% endif %}
+            </form>
+            <span>Page Size: {{ max_keys }}</span>
+            <form method="get" action="" class="mb-0">
+                <input type="hidden" name="prefix" value="{{ current_prefix }}">
+                <input type="hidden" name="max_keys" value="{{ max_keys }}">
+                {% if next_token %}
+                <button type="submit" name="continuation_token" value="{{ next_token }}" class="btn btn-outline-secondary btn-sm">Next &raquo;</button>
+                {% else %}
+                <button type="button" class="btn btn-outline-secondary btn-sm" disabled>Next &raquo;</button>
+                {% endif %}
+            </form>
+        </div>
+        
+        {% if not objects and not prefixes %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> This folder is empty.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Object Info Modal -->
+<div class="modal fade" id="objectInfoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Object Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="objectInfoContent">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showObjectInfo(bucketName, key) {
+    fetch(`/api/object/${bucketName}/${encodeURIComponent(key)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                document.getElementById('objectInfoContent').innerHTML = 
+                    `<div class="alert alert-danger">${data.error}</div>`;
+            } else {
+                document.getElementById('objectInfoContent').innerHTML = `
+                    <dl class="row">
+                        <dt class="col-sm-4">Key:</dt>
+                        <dd class="col-sm-8">${data.key}</dd>
+                        
+                        <dt class="col-sm-4">Size:</dt>
+                        <dd class="col-sm-8">${formatFileSize(data.size)}</dd>
+                        
+                        <dt class="col-sm-4">Last Modified:</dt>
+                        <dd class="col-sm-8">${new Date(data.last_modified).toLocaleString()}</dd>
+                        
+                        <dt class="col-sm-4">ETag:</dt>
+                        <dd class="col-sm-8"><code>${data.etag}</code></dd>
+                        
+                        <dt class="col-sm-4">Content Type:</dt>
+                        <dd class="col-sm-8">${data.content_type || 'Unknown'}</dd>
+                        <dt class="col-sm-4">MIME Type:</dt>
+                        <dd class="col-sm-8">${data.mime_type || 'Unknown'}</dd>
+                    </dl>
+                `;
+            }
+            new bootstrap.Modal(document.getElementById('objectInfoModal')).show();
+        })
+        .catch(error => {
+            document.getElementById('objectInfoContent').innerHTML = 
+                `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            new bootstrap.Modal(document.getElementById('objectInfoModal')).show();
+        });
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+</script>
+{% endblock %} 

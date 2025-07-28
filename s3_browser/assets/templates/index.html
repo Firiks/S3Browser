@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Buckets{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="fas fa-folder"></i> S3 Buckets</h2>
+        <hr>
+        
+        {% if buckets %}
+        <div class="row">
+            {% for bucket in buckets %}
+            <div class="col-md-4 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-folder folder-icon"></i>
+                            {{ bucket.name }}
+                        </h5>
+                        <p class="card-text text-muted">
+                            Created: {{ bucket.creation_date.strftime('%Y-%m-%d %H:%M:%S') }}
+                        </p>
+                        <a href="/bucket/{{ bucket.name }}" 
+                           class="btn btn-primary btn-sm">
+                            <i class="fas fa-eye"></i> Browse
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> No buckets found.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 
